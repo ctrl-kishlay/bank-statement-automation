@@ -1,0 +1,795 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerOn": "folder",
+        "path": "C:\\Users\\Kishlay_works\\Desktop\\projects\\bank-statement-ai\\Bankstatement",
+        "events": [
+          "add",
+          "change",
+          "unlink"
+        ],
+        "options": {
+          "awaitWriteFinish": true
+        }
+      },
+      "type": "n8n-nodes-base.localFileTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        800
+      ],
+      "id": "3348fae3-79ba-4002-ade7-44d6d5b4ad4f",
+      "name": "Local File Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"directory\": \"C:\\\\Users\\\\Kishlay_works\\\\Desktop\\\\projects\\\\bank-statement-ai\\\\Bankstatement\",\n  \"file_added\": {{ JSON.stringify($json.event === 'add' ? $json.path : '') }},\n  \"file_changed\": {{ JSON.stringify($json.event === 'change' ? $json.path : '') }},\n  \"file_deleted\": {{ JSON.stringify($json.event === 'unlink' ? $json.path : '') }},\n  \"qdrant_collection\": \"Bankstatement\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        800
+      ],
+      "id": "7eb72681-78af-4929-bf27-1d6ab63ac430",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.file_deleted }}",
+                    "rightValue": "file_deleted\n",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    },
+                    "id": "3629556e-0331-4bf5-aea4-336b7cb7c349"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "file_deleted"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "08a4c074-b446-4a66-a644-06bb3402db0c",
+                    "leftValue": "={{ $json.file_changed }}",
+                    "rightValue": "file_changed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "file_changed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "891844d9-9292-4982-a5d5-598933ae8d65",
+                    "leftValue": "={{ $json.file_added }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "file_added"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        784
+      ],
+      "id": "6ac1e320-30ed-4159-a1d8-6511401b687d",
+      "name": "Handle File Event"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://98168b53-9a26-44ff-9ff5-efefacfd1ab5.eu-west-2-0.aws.cloud.qdrant.io:6333/collections/Bankstatement/points/scroll",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n\"filter\":{\n\"must\":[\n{\n\"key\":\"metadata.filter_by_filename\",\n\"match\": { \"value\": {{ JSON.stringify($json.file_deleted) }} }\n}\n]\n},\n\"limit\":1,\n\"with_payload\":false,\n\"with_vector\":false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        528
+      ],
+      "id": "1124b990-c930-49f8-b9a1-877657402b2f",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uur2oYjCbYbVku4R",
+          "name": "Qdrant Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "275df03c-0cd6-4e8f-85ef-2e32bee5ef7e",
+              "leftValue": "={{ $json.result.points }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        528
+      ],
+      "id": "b266d4a5-8f2a-42cd-b9da-258937ad650d",
+      "name": "Has Existing Point?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://98168b53-9a26-44ff-9ff5-efefacfd1ab5.eu-west-2-0.aws.cloud.qdrant.io:6333/collections/Bankstatement/points/delete",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"points\": {{ JSON.stringify($json.result.points.map(p => p.id)) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1152,
+        512
+      ],
+      "id": "eb744bdc-d0fc-45db-b29f-e029d7230233",
+      "name": "Delete Existing Point",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uur2oYjCbYbVku4R",
+          "name": "Qdrant Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://98168b53-9a26-44ff-9ff5-efefacfd1ab5.eu-west-2-0.aws.cloud.qdrant.io:6333/collections/Bankstatement/points/scroll",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"metadata.filter_by_filename\",\n        \"match\": { \"value\": {{ JSON.stringify($json.file_changed) }} }\n      }\n    ]\n  },\n  \"limit\": 1,\n  \"with_payload\": false,\n  \"with_vector\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        672,
+        800
+      ],
+      "id": "1ca31351-2971-4c09-93fa-2cc8821c8da5",
+      "name": "Existing Point",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uur2oYjCbYbVku4R",
+          "name": "Qdrant Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e622a450-d9ac-440f-9445-c22e39ca4a0d",
+              "leftValue": "={{ $json.result.points }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        800
+      ],
+      "id": "d09a9fd3-ca1d-4d7e-94a9-322039a055f9",
+      "name": "Has Existing Point"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://98168b53-9a26-44ff-9ff5-efefacfd1ab5.eu-west-2-0.aws.cloud.qdrant.io:6333/collections/Bankstatement/points/scroll",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"points\": {{ JSON.stringify($json.result.points.map(p => p.id)) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        720
+      ],
+      "id": "d49971ef-a1da-4b8e-896f-13d5e4dac3ec",
+      "name": "Delete Existing Point(Changed)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uur2oYjCbYbVku4R",
+          "name": "Qdrant Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dcbaa7bd-f6c3-4cce-8914-800d3837c965",
+              "name": "file_added",
+              "value": "={{ $('Handle File Event').item.json.file_changed }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1344,
+        800
+      ],
+      "id": "a12db8ca-cfa1-4ae0-88a9-7f80c69f2bed",
+      "name": "Remap for File_Added Flow"
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $json.file_added }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        1024
+      ],
+      "id": "3345f389-a06b-4801-9052-32807f9c0061",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "Bankstatement",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1504,
+        1024
+      ],
+      "id": "24dd88bc-5496-470e-b4db-154b31d3b59a",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "pw4ZTmBoXci9l7JJ",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        1248
+      ],
+      "id": "73c31ee0-abc0-4ecb-8087-4a2755b1dc89",
+      "name": "Embeddings Mistral Cloud",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "9UOqgdG19EqCxt8f",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.data }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "filter_by_filename",
+                "value": "={{ $json.file_location }}"
+              },
+              {
+                "name": "filter_by_created_month",
+                "value": "={{ $now.year + '-' + $now.monthShort }}"
+              },
+              {
+                "name": "filter_by_created_week",
+                "value": "={{ $now.year + '-' + $now.monthShort + '-W' + $now.weekNumber }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1632,
+        1232
+      ],
+      "id": "3ae4bd22-216a-40d3-b07b-3d7fca5207c8",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        1408
+      ],
+      "id": "2ae308e9-1524-47a6-985a-f6b8c72e317a",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        1712,
+        624
+      ],
+      "id": "1c10eb20-be9b-4f49-8453-fc9633d76db5",
+      "name": "When chat message received",
+      "webhookId": "f50a7b79-2596-4bd0-be40-f86acdfdffb3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainRetrievalQa",
+      "typeVersion": 1.7,
+      "position": [
+        2000,
+        624
+      ],
+      "id": "85855b5f-4c48-41f4-88f4-63b1d177d271",
+      "name": "Question and Answer Chain"
+    },
+    {
+      "parameters": {
+        "model": "mistral-small-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        928
+      ],
+      "id": "6ad6a89e-05de-4843-9218-0973aa4a542a",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "9UOqgdG19EqCxt8f",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.retrieverVectorStore",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        944
+      ],
+      "id": "10f5da0e-74ed-4834-a4dc-fe0fa2a93e62",
+      "name": "Vector Store Retriever"
+    },
+    {
+      "parameters": {
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "Bankstatement",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        2048,
+        1216
+      ],
+      "id": "58c7943d-45e8-4e8d-9acc-0af83149dbbe",
+      "name": "Qdrant Vector Store1",
+      "credentials": {
+        "qdrantApi": {
+          "id": "pw4ZTmBoXci9l7JJ",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        1408
+      ],
+      "id": "f67b0b45-320b-4d2f-92d9-b56ce701713c",
+      "name": "Embeddings Mistral Cloud1",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "9UOqgdG19EqCxt8f",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        1024
+      ],
+      "id": "9e910498-776a-4637-b4b1-07baef564d44",
+      "name": "Extract from File1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Local File Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Handle File Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle File Event": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Existing Point",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Has Existing Point?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Existing Point?": {
+      "main": [
+        [
+          {
+            "node": "Delete Existing Point",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Point": {
+      "main": [
+        [
+          {
+            "node": "Has Existing Point",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Existing Point": {
+      "main": [
+        [
+          {
+            "node": "Delete Existing Point(Changed)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Remap for File_Added Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Existing Point(Changed)": {
+      "main": [
+        [
+          {
+            "node": "Remap for File_Added Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract from File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remap for File_Added Flow": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Mistral Cloud": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Store Retriever": {
+      "ai_retriever": [
+        [
+          {
+            "node": "Question and Answer Chain",
+            "type": "ai_retriever",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store1": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Vector Store Retriever",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Mistral Cloud1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File1": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c281a81b-be20-48b2-9233-fd05941f793b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bd8d2595b60e9003221efb8f4682cde3877580fef7ce8bbbb62f21442ef4260e"
+  },
+  "nodeGroups": [],
+  "id": "GFLGxG3GsTlcKLUh",
+  "tags": []
+}
